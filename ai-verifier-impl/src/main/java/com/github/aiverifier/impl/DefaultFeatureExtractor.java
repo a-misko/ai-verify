@@ -12,6 +12,7 @@ public class DefaultFeatureExtractor implements FeatureExtractor {
 
     private static final Pattern CODE_BLOCK_PATTERN = Pattern.compile(
             "```(?:gherkin|feature)?\\s*\\n(.*?)```", Pattern.DOTALL);
+    private static final String FEATURE_DECLARATION = "Feature:";
 
     @Override
     public String extractFeature(String aiResponse) {
@@ -29,9 +30,16 @@ public class DefaultFeatureExtractor implements FeatureExtractor {
 
         // If the response itself starts with "Feature:", use it as-is
         String trimmed = aiResponse.trim();
-        if (trimmed.startsWith("Feature:")) {
+        if (trimmed.startsWith(FEATURE_DECLARATION)) {
             log.info("Response is a raw feature file ({} chars)", trimmed.length());
             return trimmed;
+        }
+
+        int featureIndex = trimmed.indexOf(FEATURE_DECLARATION);
+        if (featureIndex >= 0) {
+            String content = trimmed.substring(featureIndex).trim();
+            log.info("Extracted feature from mixed AI response ({} chars)", content.length());
+            return content;
         }
 
         throw new VerifierException("Could not extract Karate feature from AI response", 4);

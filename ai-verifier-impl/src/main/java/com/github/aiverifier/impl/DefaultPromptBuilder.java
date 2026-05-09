@@ -40,13 +40,15 @@ public class DefaultPromptBuilder implements PromptBuilder {
 
         sb.append("## Runtime Config\n");
         sb.append("baseUrl: ").append(config.getApp().getBaseUrl()).append("\n");
-        if (config.getAuth() != null && config.getAuth().getToken() != null) {
-            sb.append("auth: bearer token provided as variable 'bearerToken'\n");
-        }
         if (config.getTestData() != null) {
             sb.append("testData: ").append(config.getTestData().entrySet().stream()
                     .map(e -> e.getKey() + "=" + e.getValue())
                     .collect(Collectors.joining(", "))).append("\n");
+        }
+        if (config.getDatabase() != null && config.getDatabase().isEnabled()) {
+            sb.append("database: available as variable 'database' with fields enabled, type, jdbcUrl, username, password, readonly\n");
+            sb.append("database.type: ").append(config.getDatabase().getType()).append("\n");
+            sb.append("database.readonly: ").append(config.getDatabase().isReadonly()).append("\n");
         }
         sb.append("\n");
 

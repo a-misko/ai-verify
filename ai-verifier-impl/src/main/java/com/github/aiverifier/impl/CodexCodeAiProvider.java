@@ -4,12 +4,9 @@ import com.github.aiverifier.core.exception.VerifierException;
 import com.github.aiverifier.core.service.AiProvider;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class CodexCodeAiProvider implements AiProvider {
@@ -28,35 +25,20 @@ public class CodexCodeAiProvider implements AiProvider {
     public String generate(String prompt, String projectPath, int timeoutSeconds) {
         log.info("Calling Codex Code (timeout: {}s)", timeoutSeconds);
 
-        try {
-            ProcessBuilder pb = new ProcessBuilder(buildCommand(projectPath));
-            pb.directory(Path.of(projectPath).toFile());
-            pb.redirectErrorStream(false);
+        CliProcessRunner.CliResult result = CliProcessRunner.run(
+                buildCommand(projectPath),
+                Path.of(projectPath),
+                prompt,
+                timeoutSeconds,
+                "Codex Code");
 
-            Process process = pb.start();
-            process.getOutputStream().write(prompt.getBytes(StandardCharsets.UTF_8));
-            process.getOutputStream().close();
-
-            String stdout = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            String stderr = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
-
-            if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
-                process.destroyForcibly();
-                throw new VerifierException("Codex Code timed out after " + timeoutSeconds + "s", 4);
-            }
-
-            if (process.exitValue() != 0) {
-                log.error("Codex Code stderr: {}", stderr);
-                throw new VerifierException("Codex Code failed (exit " + process.exitValue() + "): " + stderr, 4);
-            }
-
-            log.info("Codex Code response received ({} chars)", stdout.length());
-            return stdout;
-        } catch (VerifierException e) {
-            throw e;
-        } catch (IOException | InterruptedException e) {
-            throw new VerifierException("Failed to run Codex Code: " + e.getMessage(), 4, e);
+        if (result.exitCode() != 0) {
+            log.error("Codex Code stderr: {}", result.stderr());
+            throw new VerifierException("Codex Code failed (exit " + result.exitCode() + "): " + result.stderr(), 4);
         }
+
+        log.info("Codex Code response received ({} chars)", result.stdout().length());
+        return result.stdout();
     }
 
     private List<String> buildCommand(String projectPath) {
@@ -66,6 +48,11 @@ public class CodexCodeAiProvider implements AiProvider {
         command.add("--cd");
         command.add(projectPath);
         command.add("--skip-git-repo-check");
+        command.add("--sandbox");
+        command.add("read-only");
+        command.add("--ephemeral");
+        command.add("--color");
+        command.add("never");
 
         if (model != null && !model.isBlank()) {
             command.add("--model");

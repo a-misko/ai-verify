@@ -1,5 +1,7 @@
 package com.github.aiverifier.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.aiverifier.core.exception.VerifierException;
 import com.github.aiverifier.core.model.VerificationReport;
 import com.github.aiverifier.core.model.VerifierConfig;
@@ -8,25 +10,21 @@ import com.intuit.karate.Results;
 import com.intuit.karate.Runner;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.Map;
 
 @Slf4j
 public class DefaultKarateRunner implements KarateRunner {
+
+    private static final String KARATE_CONFIG_FILE = "karate-config.js";
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     @Override
     public VerificationReport run(Path featurePath, VerifierConfig config) {
         log.info("Running Karate feature: {}", featurePath);
-
-        Map<String, Object> vars = new HashMap<>();
-        vars.put("baseUrl", config.getApp().getBaseUrl());
-        if (config.getAuth() != null && config.getAuth().getToken() != null) {
-            vars.put("bearerToken", config.getAuth().getToken());
-        }
-        if (config.getTestData() != null) {
-            vars.put("testData", config.getTestData());
-        }
 
         String reportDir = "./target/ai-verifier/reports/karate";
         if (config.getKarate() != null && config.getKarate().getReportDir() != null) {
@@ -34,19 +32,62 @@ public class DefaultKarateRunner implements KarateRunner {
         }
 
         try {
+            writeKarateConfig(featurePath.getParent(), config);
+
             Results results = Runner.path(featurePath.toString())
                     .systemProperty("karate.config.dir", featurePath.getParent().toString())
                     .karateEnv("default")
                     .outputCucumberJson(true)
                     .outputHtmlReport(true)
                     .reportDir(reportDir)
-                    .systemProperty("baseUrl", config.getApp().getBaseUrl())
                     .parallel(1);
 
             return buildReport(results, featurePath);
         } catch (Exception e) {
             throw new VerifierException("Karate execution failed: " + e.getMessage(), 6, e);
         }
+    }
+
+    private void writeKarateConfig(Path directory, VerifierConfig config) throws IOException {
+        Files.createDirectories(directory);
+        String content = """
+                function fn() {
+                  return {
+                    baseUrl: %s,
+                    testData: %s,
+                    database: %s
+                  };
+                }
+                """.formatted(
+                toJson(config.getApp().getBaseUrl()),
+                toJson(config.getTestData() != null ? config.getTestData() : java.util.Map.of()),
+                toJson(toDatabaseConfig(config)));
+
+        Files.writeString(directory.resolve(KARATE_CONFIG_FILE), content);
+        log.info("Saved Karate runtime config: {}", directory.resolve(KARATE_CONFIG_FILE));
+    }
+
+    private String toJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            throw new VerifierException("Failed to serialize Karate runtime config: " + e.getMessage(), 6, e);
+        }
+    }
+
+    private java.util.Map<String, Object> toDatabaseConfig(VerifierConfig config) {
+        if (config.getDatabase() == null) {
+            return java.util.Map.of("enabled", false);
+        }
+
+        java.util.Map<String, Object> database = new java.util.LinkedHashMap<>();
+        database.put("enabled", config.getDatabase().isEnabled());
+        database.put("type", config.getDatabase().getType());
+        database.put("jdbcUrl", config.getDatabase().getJdbcUrl());
+        database.put("username", config.getDatabase().getUsername());
+        database.put("password", config.getDatabase().getPassword());
+        database.put("readonly", config.getDatabase().isReadonly());
+        return database;
     }
 
     private VerificationReport buildReport(Results results, Path featurePath) {

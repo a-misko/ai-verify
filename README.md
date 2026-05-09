@@ -45,6 +45,14 @@ app:
   baseUrl: http://localhost:8080
   healthUrl: http://localhost:8080/actuator/health
 
+database:
+  enabled: true
+  type: postgres
+  jdbcUrl: jdbc:postgresql://localhost:5432/app
+  username: app
+  password: app
+  readonly: true
+
 ai:
   provider: codex-code # supported: claude-code, codex-code
 
@@ -73,6 +81,10 @@ security:
 
 If `ai.provider` is omitted, `claude-code` is used by default.
 
+When `database.enabled` is true, the generated Karate scenario can use the `database` variable for read-only JDBC checks and bounded polling. PostgreSQL and MySQL drivers are bundled in the CLI jar.
+
+Authentication is expected to be created inside each generated scenario: register a unique user, read the confirmation link from the `notifications` table, confirm the account, obtain access and refresh tokens, and store them as Karate variables for later requests.
+
 ## Default AI Prompt
 
 The default AI instructions are stored in:
@@ -89,18 +101,27 @@ Edit this file to change the shared prompt rules. The current scenario, runtime 
 
 ```yaml
 task:
-  id: user-profile-update
-  title: Verify user profile update
-  description: Ensure the profile update endpoint persists valid display name changes.
+  id: BE-1247
+  title: Add user profile display name update
+  description: >
+    Implement an endpoint that allows an authenticated user to update their
+    profile display name. The endpoint must persist the new display name,
+    return the updated profile, reject blank or too long values, and must not
+    allow one user to update another user's profile.
 
 verificationRequest:
   focus:
-    - Validate successful profile update response.
-    - Verify invalid input is rejected.
+    - Find all endpoints affected by task BE-1247.
+    - Verify the successful display name update flow.
+    - Verify validation errors for blank and oversized display names.
+    - Verify that cross-user profile updates are forbidden.
 
 expectedBehavior:
-  - A valid request returns a 2xx status.
-  - Invalid display names return a 4xx status.
+  - A valid authenticated request returns a 2xx status with the updated profile.
+  - The updated display name is persisted and visible on the next profile read.
+  - Blank display names return a 4xx status with a readable validation error.
+  - Display names longer than the allowed limit return a 4xx status.
+  - A user cannot update another user's profile.
 
 constraints:
   destructiveOperationsAllowed: false

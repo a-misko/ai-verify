@@ -5,13 +5,15 @@ import com.github.aiverifier.core.model.VerifierConfig;
 import com.github.aiverifier.core.service.GitDiffCollector;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.concurrent.TimeUnit;
+import java.util.ArrayList;
+import java.util.List;
 
 @Slf4j
 public class ShellGitDiffCollector implements GitDiffCollector {
+
+    private static final int DIFF_TIMEOUT_SECONDS = 30;
+
     @Override
     public String collectDiff(VerifierConfig config) {
         String diffCommand = "git diff main...HEAD";
@@ -22,29 +24,62 @@ public class ShellGitDiffCollector implements GitDiffCollector {
         Path projectDir = Path.of(config.getProject().getPath());
         log.info("Collecting git diff in: {} using: {}", projectDir, diffCommand);
 
-        try {
-            ProcessBuilder pb = new ProcessBuilder("bash", "-c", diffCommand);
-            pb.directory(projectDir.toFile());
-            pb.redirectErrorStream(true);
+        CliProcessRunner.CliResult result = CliProcessRunner.run(
+                buildCommand(diffCommand),
+                projectDir,
+                null,
+                DIFF_TIMEOUT_SECONDS,
+                "git diff");
 
-            Process process = pb.start();
-            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-
-            if (!process.waitFor(30, TimeUnit.SECONDS)) {
-                process.destroyForcibly();
-                throw new VerifierException("Git diff timed out", 3);
-            }
-
-            if (process.exitValue() != 0) {
-                throw new VerifierException("Git diff failed: " + output, 3);
-            }
-
-            log.info("Git diff collected ({} chars)", output.length());
-            return output;
-        } catch (VerifierException e) {
-            throw e;
-        } catch (IOException | InterruptedException e) {
-            throw new VerifierException("Failed to run git diff: " + e.getMessage(), 3, e);
+        if (result.exitCode() != 0) {
+            throw new VerifierException("Git diff failed: " + result.stderr() + result.stdout(), 3);
         }
+
+        log.info("Git diff collected ({} chars)", result.stdout().length());
+        return result.stdout();
+    }
+
+    private List<String> buildCommand(String diffCommand) {
+        List<String> parts = splitCommand(diffCommand);
+        if (!parts.isEmpty() && "git".equals(parts.get(0))) {
+            return parts;
+        }
+
+        if (isWindows()) {
+            return List.of("cmd.exe", "/c", diffCommand);
+        }
+        return List.of("sh", "-c", diffCommand);
+    }
+
+    private List<String> splitCommand(String command) {
+        List<String> parts = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean inSingleQuotes = false;
+        boolean inDoubleQuotes = false;
+
+        for (int i = 0; i < command.length(); i++) {
+            char ch = command.charAt(i);
+            if (ch == '\'' && !inDoubleQuotes) {
+                inSingleQuotes = !inSingleQuotes;
+            } else if (ch == '"' && !inSingleQuotes) {
+                inDoubleQuotes = !inDoubleQuotes;
+            } else if (Character.isWhitespace(ch) && !inSingleQuotes && !inDoubleQuotes) {
+                if (!current.isEmpty()) {
+                    parts.add(current.toString());
+                    current.setLength(0);
+                }
+            } else {
+                current.append(ch);
+            }
+        }
+
+        if (!current.isEmpty()) {
+            parts.add(current.toString());
+        }
+        return parts;
+    }
+
+    private boolean isWindows() {
+        return System.getProperty("os.name", "").toLowerCase().contains("win");
     }
 }

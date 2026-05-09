@@ -31,6 +31,8 @@
         <logback.version>1.5.6</logback.version>
         <jackson.version>2.17.1</jackson.version>
         <lombok.version>1.18.32</lombok.version>
+        <postgresql.version>42.7.3</postgresql.version>
+        <mysql.version>8.4.0</mysql.version>
     </properties>
 
     <dependencyManagement>
@@ -78,6 +80,18 @@
                 <groupId>com.fasterxml.jackson.dataformat</groupId>
                 <artifactId>jackson-dataformat-yaml</artifactId>
                 <version>${jackson.version}</version>
+            </dependency>
+
+            <!-- JDBC drivers for runtime verification -->
+            <dependency>
+                <groupId>org.postgresql</groupId>
+                <artifactId>postgresql</artifactId>
+                <version>${postgresql.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.mysql</groupId>
+                <artifactId>mysql-connector-j</artifactId>
+                <version>${mysql.version}</version>
             </dependency>
 
             <!-- Logging -->
