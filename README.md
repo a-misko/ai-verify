@@ -53,6 +53,20 @@ database:
   password: app
   readonly: true
 
+authFlow:
+  registrationEndpoint: /api/auth/register
+  confirmationEndpoint: /api/auth/confirm
+  tokenEndpoint: /api/auth/token
+  notificationQuery: >
+    select link from notifications
+    where recipient = ?
+    order by created_at desc
+    limit 1
+  confirmationLinkColumn: link
+  confirmationTokenRegex: token=([^&]+)
+  accessTokenJsonPath: $.accessToken
+  refreshTokenJsonPath: $.refreshToken
+
 ai:
   provider: codex-code # supported: claude-code, codex-code
 
@@ -81,9 +95,13 @@ security:
 
 If `ai.provider` is omitted, `claude-code` is used by default.
 
-When `database.enabled` is true, the generated Karate scenario can use the `database` variable for read-only JDBC checks and bounded polling. PostgreSQL and MySQL drivers are bundled in the CLI jar.
+When `database.enabled` is true, the generated Karate scenario can use `db.query(sql, params)` for read-only JDBC checks, `db.await(sql, params, timeoutMillis)` for bounded polling that fails on timeout, and `db.awaitOne(sql, params, timeoutMillis)` to return the first matching row. PostgreSQL and MySQL drivers are bundled in the CLI jar.
 
 Authentication is expected to be created inside each generated scenario: register a unique user, read the confirmation link from the `notifications` table, confirm the account, obtain access and refresh tokens, and store them as Karate variables for later requests.
+
+The optional `authFlow` block provides exact endpoints and extraction rules. If it is missing or incomplete, the utility first asks the selected AI provider to scan the project and return the missing `authFlow` values as JSON. The resolved flow is saved next to generated artifacts as `<task-id>.auth-flow.json`, then the main scenario generation continues with that resolved config.
+
+Before calling the AI provider, the utility also writes a static project inventory file next to generated artifacts. The inventory contains detected endpoints, relevant source files, database artifacts, messaging artifacts, and auth-related hints. These hints are appended to the AI prompt and included in the final report.
 
 ## Default AI Prompt
 
@@ -93,7 +111,7 @@ The default AI instructions are stored in:
 ai-verifier-impl/src/main/resources/prompts/default-ai-prompt.md
 ```
 
-Edit this file to change the shared prompt rules. The current scenario, runtime config, test data, and Git diff are appended by the application at runtime.
+Edit this file to change the shared prompt rules. The current scenario, runtime config, project path, test data, and Git diff are appended by the application at runtime. The AI provider is expected to scan the configured project in read-only mode before generating the Karate feature.
 
 ## Scenario Example
 

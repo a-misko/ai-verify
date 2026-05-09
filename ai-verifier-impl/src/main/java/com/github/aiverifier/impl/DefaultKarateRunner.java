@@ -55,12 +55,16 @@ public class DefaultKarateRunner implements KarateRunner {
                   return {
                     baseUrl: %s,
                     testData: %s,
-                    database: %s
+                    database: %s,
+                    authFlow: %s,
+                    db: new (Java.type('com.github.aiverifier.impl.KarateDb'))(%s)
                   };
                 }
                 """.formatted(
                 toJson(config.getApp().getBaseUrl()),
                 toJson(config.getTestData() != null ? config.getTestData() : java.util.Map.of()),
+                toJson(toDatabaseConfig(config)),
+                toJson(toAuthFlowConfig(config)),
                 toJson(toDatabaseConfig(config)));
 
         Files.writeString(directory.resolve(KARATE_CONFIG_FILE), content);
@@ -88,6 +92,23 @@ public class DefaultKarateRunner implements KarateRunner {
         database.put("password", config.getDatabase().getPassword());
         database.put("readonly", config.getDatabase().isReadonly());
         return database;
+    }
+
+    private java.util.Map<String, Object> toAuthFlowConfig(VerifierConfig config) {
+        if (config.getAuthFlow() == null) {
+            return java.util.Map.of();
+        }
+
+        java.util.Map<String, Object> authFlow = new java.util.LinkedHashMap<>();
+        authFlow.put("registrationEndpoint", config.getAuthFlow().getRegistrationEndpoint());
+        authFlow.put("confirmationEndpoint", config.getAuthFlow().getConfirmationEndpoint());
+        authFlow.put("tokenEndpoint", config.getAuthFlow().getTokenEndpoint());
+        authFlow.put("notificationQuery", config.getAuthFlow().getNotificationQuery());
+        authFlow.put("confirmationLinkColumn", config.getAuthFlow().getConfirmationLinkColumn());
+        authFlow.put("confirmationTokenRegex", config.getAuthFlow().getConfirmationTokenRegex());
+        authFlow.put("accessTokenJsonPath", config.getAuthFlow().getAccessTokenJsonPath());
+        authFlow.put("refreshTokenJsonPath", config.getAuthFlow().getRefreshTokenJsonPath());
+        return authFlow;
     }
 
     private VerificationReport buildReport(Results results, Path featurePath) {

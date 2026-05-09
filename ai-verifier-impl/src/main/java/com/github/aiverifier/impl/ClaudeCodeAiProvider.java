@@ -44,7 +44,7 @@ public class ClaudeCodeAiProvider implements AiProvider {
                 "--output-format",
                 "text",
                 "--tools",
-                "",
+                "Read,Grep,Glob",
                 "--no-session-persistence");
     }
 }

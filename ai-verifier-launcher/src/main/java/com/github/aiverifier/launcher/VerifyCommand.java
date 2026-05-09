@@ -35,6 +35,8 @@ public class VerifyCommand implements Callable<Integer> {
                 new YamlScenarioLoader(),
                 new HttpEnvironmentChecker(),
                 new ShellGitDiffCollector(),
+                new DefaultProjectInventoryCollector(),
+                new DefaultAuthFlowResolver(),
                 new DefaultPromptBuilder(),
                 new DefaultAiProviderFactory(),
                 new DefaultFeatureExtractor(),

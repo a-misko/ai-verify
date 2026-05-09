@@ -54,6 +54,12 @@ public class DefaultReportWriter implements ReportWriter {
             sb.append("\n");
         }
 
+        appendSection(sb, "Affected Endpoints", report.getAffectedEndpoints());
+        appendSection(sb, "Coverage", report.getCoverage());
+        appendSection(sb, "DB Checks", report.getDbChecks());
+        appendSection(sb, "Async Checks", report.getAsyncChecks());
+        appendSection(sb, "Not Verified Reasons", report.getNotVerifiedReasons());
+
         if (report.getErrorMessage() != null) {
             sb.append("## Error\n\n").append(report.getErrorMessage()).append("\n");
         }
@@ -79,5 +85,14 @@ public class DefaultReportWriter implements ReportWriter {
         } catch (IOException e) {
             throw new VerifierException("Failed to write report: " + e.getMessage(), 6, e);
         }
+    }
+
+    private void appendSection(StringBuilder sb, String title, java.util.List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return;
+        }
+        sb.append("## ").append(title).append("\n\n");
+        values.forEach(value -> sb.append("- ").append(value).append("\n"));
+        sb.append("\n");
     }
 }

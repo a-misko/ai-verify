@@ -19,5 +19,10 @@ public class VerificationReport {
     private List<String> passed = new ArrayList<>();
     private List<String> failed = new ArrayList<>();
     private List<String> notVerified = new ArrayList<>();
+    private List<String> affectedEndpoints = new ArrayList<>();
+    private List<String> coverage = new ArrayList<>();
+    private List<String> dbChecks = new ArrayList<>();
+    private List<String> asyncChecks = new ArrayList<>();
+    private List<String> notVerifiedReasons = new ArrayList<>();
     private String errorMessage;
 }

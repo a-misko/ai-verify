@@ -13,6 +13,7 @@ public class VerifierConfig {
     private AppConfig app;
     private AuthConfig auth;
     private DatabaseConfig database;
+    private AuthFlowConfig authFlow;
     private Map<String, Object> testData;
     private AiConfig ai;
     private ClaudeCodeConfig claudeCode;
@@ -54,6 +55,18 @@ public class VerifierConfig {
         private String username;
         private String password;
         private boolean readonly;
+    }
+
+    @Data
+    public static class AuthFlowConfig {
+        private String registrationEndpoint;
+        private String confirmationEndpoint;
+        private String tokenEndpoint;
+        private String notificationQuery;
+        private String confirmationLinkColumn;
+        private String confirmationTokenRegex;
+        private String accessTokenJsonPath;
+        private String refreshTokenJsonPath;
     }
 
     @Data
