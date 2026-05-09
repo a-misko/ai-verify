@@ -1,20 +1,25 @@
 package com.github.aiverifier.impl;
 
+import com.github.aiverifier.core.exception.VerifierException;
 import com.github.aiverifier.core.model.ScenarioRequest;
 import com.github.aiverifier.core.model.VerifierConfig;
 import com.github.aiverifier.core.service.PromptBuilder;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.stream.Collectors;
 
 public class DefaultPromptBuilder implements PromptBuilder {
+
+    private static final String DEFAULT_PROMPT_RESOURCE = "prompts/default-ai-prompt.md";
 
     @Override
     public String buildPrompt(VerifierConfig config, ScenarioRequest scenario, String gitDiff) {
         StringBuilder sb = new StringBuilder();
 
-        sb.append("You are a backend verification engineer.\n\n");
-        sb.append("Goal:\n");
-        sb.append("Generate exactly one valid Karate .feature file for runtime verification.\n\n");
+        sb.append(loadDefaultPrompt()).append("\n\n");
+        sb.append("## Current Scenario Context\n\n");
 
         sb.append("## Task\n");
         sb.append("ID: ").append(scenario.getTask().getId()).append("\n");
@@ -47,24 +52,23 @@ public class DefaultPromptBuilder implements PromptBuilder {
 
         sb.append("## Git Diff\n```\n").append(gitDiff).append("\n```\n\n");
 
-        sb.append("## Rules\n");
-        sb.append("1. Do not modify production files.\n");
-        sb.append("2. Do not run application tests.\n");
-        sb.append("3. Do not execute HTTP requests.\n");
-        sb.append("4. Do not execute SQL.\n");
-        sb.append("5. Only generate a Karate .feature file.\n");
-        sb.append("6. Use only provided baseUrl variable.\n");
-        sb.append("7. Use only provided testData.\n");
-
         if (config.getSecurity() != null && config.getSecurity().getForbiddenMethods() != null) {
             String forbidden = String.join(", ", config.getSecurity().getForbiddenMethods());
-            sb.append("8. Do not use ").append(forbidden).append(".\n");
+            sb.append("## Configured Security Restrictions\n");
+            sb.append("Do not use these HTTP methods: ").append(forbidden).append(".\n\n");
         }
 
-        sb.append("9. Do not use external URLs.\n");
-        sb.append("10. If required test data is missing, generate a scenario that fails with a clear readable message.\n");
-        sb.append("11. Return only the feature file content. No explanation.\n");
-
         return sb.toString();
+    }
+
+    private String loadDefaultPrompt() {
+        try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream(DEFAULT_PROMPT_RESOURCE)) {
+            if (inputStream == null) {
+                throw new VerifierException("Default AI prompt resource not found: " + DEFAULT_PROMPT_RESOURCE, 4);
+            }
+            return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8).trim();
+        } catch (IOException e) {
+            throw new VerifierException("Failed to load default AI prompt: " + e.getMessage(), 4, e);
+        }
     }
 }

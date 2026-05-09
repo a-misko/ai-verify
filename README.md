@@ -73,6 +73,16 @@ security:
 
 If `ai.provider` is omitted, `claude-code` is used by default.
 
+## Default AI Prompt
+
+The default AI instructions are stored in:
+
+```text
+ai-verifier-impl/src/main/resources/prompts/default-ai-prompt.md
+```
+
+Edit this file to change the shared prompt rules. The current scenario, runtime config, test data, and Git diff are appended by the application at runtime.
+
 ## Scenario Example
 
 `scenario.yml`:
